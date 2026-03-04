@@ -1,9 +1,18 @@
+#!/usr/bin/env python3
+"""
+MonsterChase - BFS vs DFS Pathfinding Demo
+GitHub Repository: https://github.com/Zencode22/MonsterChase
+"""
+
 from __future__ import annotations
 
 from collections import deque
 import time
-from typing import Dict, List, Optional, Set, Tuple
+import os
+import sys
+from typing import Dict, List, Optional, Set, Tuple, Union
 
+# Type aliases
 Pos = Tuple[int, int]  # (row, col)
 Grid = List[List[str]]
 
@@ -42,6 +51,33 @@ EXAMPLE_MAP_3 = """
 ##########
 """.strip("\n")
 
+# Game map
+GAME_MAP = """
+##########
+#P.......#
+#.#####..#
+#.#...#..#
+#.#.#.#G.#
+#.#.#.#..#
+#...#....#
+#....M...#
+##########
+""".strip("\n")
+
+
+def print_banner():
+    """Print a cool banner for the game."""
+    banner = f"""
+╔══════════════════════════════════════════════════════════════╗
+║                     🏃 MONSTER CHASE 🏃                       ║
+║         BFS vs DFS - Pathfinding Algorithm Showdown          ║
+║                                                              ║
+║   GitHub: {REPO_URL}  ║
+║   Version: {VERSION}                                           ║
+╚══════════════════════════════════════════════════════════════╝
+"""
+    print(banner)
+
 
 def parse_grid(text: str) -> Tuple[Grid, Pos, Pos]:
     """
@@ -53,8 +89,9 @@ def parse_grid(text: str) -> Tuple[Grid, Pos, Pos]:
     'S' start (exactly one)
     'G' goal (exactly one)
     """
-    lines = text.strip().split('\n')
-    grid = [list(line) for line in lines if line.strip()]
+    # Split into lines and remove empty lines
+    lines = [line for line in text.strip().split('\n') if line.strip()]
+    grid = [list(line) for line in lines]
     
     start = None
     goal = None
@@ -66,8 +103,10 @@ def parse_grid(text: str) -> Tuple[Grid, Pos, Pos]:
             elif cell == 'G':
                 goal = (r, c)
     
-    if start is None or goal is None:
-        raise ValueError("Map must contain exactly one 'S' and one 'G'")
+    if start is None:
+        raise ValueError("Map must contain exactly one 'S' start position")
+    if goal is None:
+        raise ValueError("Map must contain exactly one 'G' goal position")
     
     return grid, start, goal
 
@@ -86,7 +125,7 @@ def neighbors(grid: Grid, node: Pos) -> List[Pos]:
     return valid
 
 
-def reconstruct_path(parent: Dict[Pos, Pos], start: Pos, goal: Pos) -> Optional[List[Pos]]:
+def reconstruct_path(parent: Dict[Pos, Union[Pos, None]], start: Pos, goal: Pos) -> Optional[List[Pos]]:
     """Reconstruct path from start->goal using parent pointers. Return None if goal unreachable."""
     if goal not in parent and goal != start:
         return None
@@ -99,6 +138,8 @@ def reconstruct_path(parent: Dict[Pos, Pos], start: Pos, goal: Pos) -> Optional[
         if current not in parent:
             return None
         current = parent[current]
+        if current is None:  # Safety check
+            return None
     
     path.append(start)
     return list(reversed(path))
@@ -114,6 +155,7 @@ def bfs_path(grid: Grid, start: Pos, goal: Pos) -> Tuple[Optional[List[Pos]], Se
     if start == goal:
         return [start], {start}
     
+    # Initialize
     queue = deque([start])
     visited = {start}
     parent = {start: None}
@@ -131,6 +173,7 @@ def bfs_path(grid: Grid, start: Pos, goal: Pos) -> Tuple[Optional[List[Pos]], Se
                 parent[neighbor] = current
                 queue.append(neighbor)
     
+    # No path found
     return None, visited
 
 
@@ -142,6 +185,7 @@ def dfs_path(grid: Grid, start: Pos, goal: Pos) -> Tuple[Optional[List[Pos]], Se
     if start == goal:
         return [start], {start}
     
+    # Initialize
     stack = [start]
     visited = {start}
     parent = {start: None}
@@ -159,6 +203,7 @@ def dfs_path(grid: Grid, start: Pos, goal: Pos) -> Tuple[Optional[List[Pos]], Se
                 parent[neighbor] = current
                 stack.append(neighbor)
     
+    # No path found
     return None, visited
 
 
@@ -201,7 +246,7 @@ def run_one(label: str, grid_text: str) -> None:
         return
     
     print("=" * 60)
-    print(label)
+    print(f"📊 {label}")
     print("-" * 60)
     print("Original map:")
     print(render(grid))
@@ -212,12 +257,12 @@ def run_one(label: str, grid_text: str) -> None:
     path_bfs, visited_bfs = bfs_path(grid, start, goal)
     bfs_time = time.time() - start_time
     
-    print("BFS:")
-    print(f"  Found path: {path_bfs is not None}")
-    print(f"  Path length: {len(path_bfs) if path_bfs else 'N/A'}")
-    print(f"  Nodes visited: {len(visited_bfs)}")
-    print(f"  Time: {bfs_time:.6f} seconds")
-    print("  Rendered map:")
+    print("🔵 BFS (Queue-based):")
+    print(f"  ✅ Path found: {path_bfs is not None}")
+    print(f"  📏 Path length: {len(path_bfs) if path_bfs else 'N/A'}")
+    print(f"  👀 Nodes visited: {len(visited_bfs)}")
+    print(f"  ⏱️  Time: {bfs_time:.6f} seconds")
+    print("  🗺️  Rendered map:")
     print(render(grid, path=path_bfs, visited=visited_bfs))
     print()
     
@@ -226,114 +271,140 @@ def run_one(label: str, grid_text: str) -> None:
     path_dfs, visited_dfs = dfs_path(grid, start, goal)
     dfs_time = time.time() - start_time
     
-    print("DFS:")
-    print(f"  Found path: {path_dfs is not None}")
-    print(f"  Path length: {len(path_dfs) if path_dfs else 'N/A'}")
-    print(f"  Nodes visited: {len(visited_dfs)}")
-    print(f"  Time: {dfs_time:.6f} seconds")
-    print("  Rendered map:")
+    print("🟢 DFS (Stack-based):")
+    print(f"  ✅ Path found: {path_dfs is not None}")
+    print(f"  📏 Path length: {len(path_dfs) if path_dfs else 'N/A'}")
+    print(f"  👀 Nodes visited: {len(visited_dfs)}")
+    print(f"  ⏱️  Time: {dfs_time:.6f} seconds")
+    print("  🗺️  Rendered map:")
     print(render(grid, path=path_dfs, visited=visited_dfs))
     print()
     
-    # Comparison
+    # Comparison if both found paths
     if path_bfs and path_dfs:
-        print("Comparison:")
+        print("📈 Comparison:")
         if len(path_bfs) < len(path_dfs):
             print(f"  ✓ BFS found SHORTER path (difference: {len(path_dfs) - len(path_bfs)} steps)")
         elif len(path_bfs) > len(path_dfs):
-            print(f"  ⚠ DFS found SHORTER path (unusual! difference: {len(path_bfs) - len(path_dfs)} steps)")
+            print(f"  ⚠ DFS found SHORTER path (difference: {len(path_bfs) - len(path_dfs)} steps)")
         else:
-            print("  Both paths are the same length")
+            print("  📊 Both paths are the same length")
         
         visited_diff = len(visited_dfs) - len(visited_bfs)
-        print(f"  DFS explored {abs(visited_diff)} {'more' if visited_diff > 0 else 'fewer'} nodes than BFS")
+        print(f"  🔍 DFS explored {abs(visited_diff)} {'more' if visited_diff > 0 else 'fewer'} nodes than BFS")
     print()
 
 
 def game_loop() -> None:
     """
-    Optional game: Monster Chase (Turn-Based)
+    Game: Monster Chase (Turn-Based)
     P = player, M = monster, G = exit, # = walls, . = floor
     """
-    game_map = """
-##########
-#P.......#
-#.#####..#
-#.#...#..#
-#.#.#.#G.#
-#.#.#.#..#
-#...#....#
-#....M...#
-##########
-""".strip("\n")
+    # Clear screen for better gameplay
+    os.system('cls' if os.name == 'nt' else 'clear')
     
-    try:
-        grid, goal_pos, _ = parse_grid(game_map.replace('P', 'S').replace('M', '.'))
-    except ValueError:
-        print("Error: Game map missing required elements")
-        return
+    print_banner()
+    print("\n" + "=" * 60)
+    print("🎮 MONSTER CHASE - Turn Based Game")
+    print("=" * 60)
     
-    # Find player and monster positions
+    # Parse game map
+    lines = [line for line in GAME_MAP.split('\n') if line.strip()]
+    grid = [list(line) for line in lines]
+    
+    # Find player, monster, and goal positions
     player_pos = None
     monster_pos = None
+    goal_pos = None
     
     for r, row in enumerate(grid):
         for c, cell in enumerate(row):
-            if cell == '.' and game_map.split('\n')[r][c] == 'P':
+            if cell == 'P':
                 player_pos = (r, c)
-                grid[r][c] = '.'
-            elif cell == '.' and game_map.split('\n')[r][c] == 'M':
+                grid[r][c] = '.'  # Convert to floor
+            elif cell == 'M':
                 monster_pos = (r, c)
-                grid[r][c] = '.'
+                grid[r][c] = '.'  # Convert to floor
+            elif cell == 'G':
+                goal_pos = (r, c)
+                # Keep G as is
     
-    if not player_pos or not monster_pos:
-        print("Failed to initialize game")
+    # Verify all required elements are present
+    if not player_pos:
+        print("❌ Error: Could not find player (P) on map")
+        print("Make sure the map contains exactly one 'P'")
+        input("\nPress Enter to return to menu...")
+        return
+    
+    if not monster_pos:
+        print("❌ Error: Could not find monster (M) on map")
+        print("Make sure the map contains exactly one 'M'")
+        input("\nPress Enter to return to menu...")
+        return
+    
+    if not goal_pos:
+        print("❌ Error: Could not find goal (G) on map")
+        print("Make sure the map contains exactly one 'G'")
+        input("\nPress Enter to return to menu...")
         return
     
     # Game settings
+    print("\nChoose monster AI:")
+    print("  [B] BFS - Smart monster (always takes shortest path) - HARD MODE")
+    print("  [D] DFS - Dumb monster (may wander aimlessly) - EASY MODE")
+    
+    choice = input("\nYour choice (B/D): ").strip().upper()
+    mode = "BFS" if choice == 'B' else "DFS"
+    
     print("\n" + "=" * 60)
-    print("MONSTER CHASE - Turn Based Game")
-    print("=" * 60)
-    
-    mode = input("Choose monster AI (BFS/DFS): ").strip().upper()
-    if mode not in ["BFS", "DFS"]:
-        mode = "BFS"
-        print(f"Invalid choice, defaulting to {mode}")
-    
-    print("\nControls: WASD to move, Q to quit")
+    print(f"🤖 Monster AI: {mode}")
+    print("\n🎮 Controls:")
+    print("  W - Move Up")
+    print("  A - Move Left")
+    print("  S - Move Down")
+    print("  D - Move Right")
+    print("  Q - Quit game")
     print("=" * 60)
     
     turns = 0
     moves_made = 0
     
     while True:
+        # Clear screen for each turn (optional)
+        # os.system('cls' if os.name == 'nt' else 'clear')
+        
         # Render current state
         game_render = [row[:] for row in grid]
         pr, pc = player_pos
         mr, mc = monster_pos
+        gr, gc = goal_pos
+        
         game_render[pr][pc] = 'P'
         game_render[mr][mc] = 'M'
-        game_render[goal_pos[0]][goal_pos[1]] = 'G'
+        game_render[gr][gc] = 'G'
         
-        print(f"\nTurn {turns} | Moves: {moves_made}")
-        print('-' * 40)
-        print('\n'.join(''.join(row) for row in game_render))
-        print('-' * 40)
+        print(f"\n📊 Turn {turns} | Moves made: {moves_made}")
+        print("─" * 40)
+        for row in game_render:
+            print(''.join(row))
+        print("─" * 40)
         
         # Check win/lose conditions
         if player_pos == monster_pos:
-            print("\n💀 GAME OVER - Monster caught you!")
+            print("\n💀 GAME OVER - The monster caught you!")
+            print(f"You survived {turns} turns and made {moves_made} moves.")
             break
         
         if player_pos == goal_pos:
-            print("\n🏆 YOU WIN - Reached the exit!")
+            print("\n🏆 YOU WIN - You reached the exit safely!")
+            print(f"Congratulations! You escaped in {turns} turns with {moves_made} moves.")
             break
         
         # Player move
         move = input("Your move (WASD): ").strip().lower()
         
         if move == 'q':
-            print("\nGame quit")
+            print("\n👋 Game quit. Thanks for playing!")
             break
         
         # Calculate new player position
@@ -347,43 +418,50 @@ def game_loop() -> None:
         elif move == 'd':
             dc += 1
         else:
-            print("Invalid move")
+            print("❌ Invalid move! Use W, A, S, D or Q to quit.")
             continue
         
         new_pos = (dr, dc)
         
         # Check if move is valid
-        if (0 <= dr < len(grid) and 0 <= dc < len(grid[0]) and 
-            grid[dr][dc] != '#' and (dr, dc) != monster_pos):
-            player_pos = new_pos
-            moves_made += 1
-        elif (dr, dc) == monster_pos:
-            print("Can't move there - monster is there!")
+        if not (0 <= dr < len(grid) and 0 <= dc < len(grid[0])):
+            print("❌ Can't move there - out of bounds!")
             continue
-        else:
-            print("Can't move there - wall!")
+            
+        if grid[dr][dc] == '#':
+            print("❌ Can't move there - wall!")
+            continue
+            
+        if new_pos == monster_pos:
+            print("❌ Can't move there - the monster is there!")
             continue
         
-        # Monster move
-        monster_path, _ = bfs_path(grid, monster_pos, player_pos) if mode == "BFS" else dfs_path(grid, monster_pos, player_pos)
+        # Valid move
+        player_pos = new_pos
+        moves_made += 1
+        
+        # Monster move (using chosen algorithm)
+        path_func = bfs_path if mode == "BFS" else dfs_path
+        monster_path, _ = path_func(grid, monster_pos, player_pos)
         
         if monster_path and len(monster_path) > 1:
-            monster_pos = monster_path[1]
+            monster_pos = monster_path[1]  # Move one step along path
         
         turns += 1
+    
+    input("\nPress Enter to return to main menu...")
 
 
 def main() -> None:
     """Main entry point."""
-    print(f"\n{REPO_NAME} v{VERSION}")
-    print(f"Repository: {REPO_URL}\n")
+    print_banner()
     
     while True:
-        print("\nMAIN MENU")
+        print("\n📌 MAIN MENU")
         print("=" * 60)
-        print("1. Run pathfinding demo (all maps)")
-        print("2. Play Monster Chase game")
-        print("3. Exit")
+        print("1. 🧪 Run pathfinding demo on all maps")
+        print("2. 🎮 Play Monster Chase game")
+        print("3. ❌ Exit")
         print("=" * 60)
         
         choice = input("\nSelect option (1-3): ").strip()
@@ -396,16 +474,22 @@ def main() -> None:
         
         elif choice == '2':
             game_loop()
-            input("\nPress Enter to continue...")
         
         elif choice == '3':
-            print("\nThanks for playing MonsterChase!")
-            print(f"Star us on GitHub: {REPO_URL}")
+            print("\n👋 Thanks for playing MonsterChase!")
+            print(f"⭐ Star us on GitHub: {REPO_URL}")
             break
         
         else:
-            print("Invalid choice. Please select 1-3.")
+            print("❌ Invalid choice. Please select 1-3.")
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except KeyboardInterrupt:
+        print("\n\n👋 Goodbye! Thanks for playing MonsterChase!")
+    except Exception as e:
+        print(f"\n❌ An error occurred: {e}")
+        print("Please report this issue on GitHub:")
+        print(f"{REPO_URL}/issues")
